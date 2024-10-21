@@ -12,14 +12,32 @@ const rl = readline.createInterface({
   output: process.stdout
 });
 
-rl.question('Which port should the server run on? ', (port) => {
-  port = parseInt(port, 10);
+const isValidPort = (port) => {
+  const parsedPort = parseInt(port, 10);
+  return !isNaN(parsedPort) && parsedPort > 0 && parsedPort <= 65535;
+};
 
-  if (isNaN(port) || port <= 0 || port > 65535) {
+const serveFile = (filePath, res) => {
+  const mimeType = mime.lookup(filePath);
+  fs.readFile(filePath, (err, data) => {
+    if (err) {
+      res.writeHead(500, { 'Content-Type': 'text/plain' });
+      res.end('500 Internal Server Error');
+    } else {
+      res.writeHead(200, { 'Content-Type': mimeType });
+      res.end(data);
+    }
+  });
+};
+
+rl.question('Which port should the server run on? ', (port) => {
+  if (!isValidPort(port)) {
     console.log('Please enter a valid port number (from 1 to 65535).');
     rl.close();
     return;
   }
+
+  port = parseInt(port, 10);
 
   http.createServer((req, res) => {
     const parsedUrl = url.parse(req.url);
@@ -38,17 +56,7 @@ rl.question('Which port should the server run on? ', (port) => {
         filePath = path.join(filePath, 'index.html');
       }
 
-      const mimeType = mime.lookup(filePath);
-
-      fs.readFile(filePath, (err, data) => {
-        if (err) {
-          res.writeHead(500, { 'Content-Type': 'text/plain' });
-          res.end('500 Internal Server Error');
-        } else {
-          res.writeHead(200, { 'Content-Type': mimeType });
-          res.end(data);
-        }
-      });
+      serveFile(filePath, res);
     });
   }).listen(port, () => {
     console.log(`Server is running at http://localhost:${port}`);
